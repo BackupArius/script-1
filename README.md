@@ -1,2 +1,0 @@
-# sitetecthron
-Novo Site Tecthron
