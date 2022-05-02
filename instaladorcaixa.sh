@@ -37,15 +37,31 @@ case $opcao in
 	ln -sf /usr/local/lib/libcrypto.so.1.0.0  /usr/lib/libcrypto.so.1
 	ln -sf /usr/local/lib/libssl.so.1.0.0  /usr/lib/libssl.so.1 
 	cd /root
+	
+	removepkg glibc-2.17-i486-7.txz
+	removepkg nc-1.10-i386-1.txz
+	removepkg wnbtlscli-1.0.1x-i486.tgz
+	removepkg curl-7.55.0-i486-1_slack13.0.txz
+	rm /var/log/wnb/ -R
+	rm /etc/wnbtlscli/ -R
 	rm /etc/wnbtlscli/registry
+	rm /usr/bin/wnbmonitor
 
-	pack="/root/wnbtlscli*"
+	pack="/root/conectpack.zip"
 	
 	if [ "$pack" ]; then
 		sleep 2
 	else
 		cd /root
-		wget ftp://cre:suporte@ftp.cre.com.br:2321/pub/cre/conect/wnbtlscli* && installpkg wnbtlscli*.tgz
+		
+		wget https://github.com/cleberfmiguel/script/blob/44f6b31d217b36b10f53e3a990e12e338d56e6bd/conectpack.zip && unzip conectpack.zip
+		
+		cp /root/wnbmonitor.slack /usr/bin/wnbmonitor && chmod 777 /usr/bin/wnbmonitor
+		
+		(installpkg curl-*.txz) | dialog --stdout --title 'Instalação dos Pacotes' --guage '\ncurl-7.55.0-i486-1_slack13.0.txz...' 8 40 60
+		(installpkg glibc-*.txz) | dialog --stdout --title 'Instalação dos Pacotes' --guage '\nglibc-2.17-i486-7.txz...' 8 40 60
+		(installpkg nc-*.txz) | dialog --stdout --title 'Instalação dos Pacotes' --guage '\nnc-1.10-i386-1.txz...' 8 40 60
+		(installpkg wnbtlscli*.tgz) | dialog --stdout --title 'Instalação dos Pacotes' --guage '\nwnbtlscli_1.0.1-i486.tgz...' 8 40 60
 	fi
 
 	wnbmonlocal=$(grep "wnbmonitor" /etc/rc.d/rc.local)
