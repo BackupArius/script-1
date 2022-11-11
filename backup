@@ -1,0 +1,361 @@
+#!/bin/bash
+
+DIA_ATUAL=`date --date="-0 day" +"%Y.%m.%d"`
+HORAINICIAL=`date +%T`
+VER=$(lsb_release -r| awk ' {print substr ($2,0,5) } ')
+IPV4=$(cat /etc/network/interfaces | grep "address"|cut -c8-)
+UPTIME=$(uptime -s)
+
+####################################################
+# Entrada do nro da loja e cliente
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Coletando informações do Cliente"
+echo "----------------------------------------------------------------------"
+echo "                          ***** ATENÇÃO ******"
+echo "Insira o nome do cliente em minúsculo e sem espaços em branco"
+echo "Exemplos: bombaiano, souzabueno, jdbrasilia, tateno_delihouse, teddy..."
+echo
+echo "Qual o Nome do Cliente"
+    read CLIENTE;
+echo   
+echo "Qual o Numero da Loja. Ex. loja01"
+echo
+    read LOJA1;
+clear
+echo "Nome do Cliente: ${CLIENTE}"
+echo
+echo "Loja: ${LOJA1}"
+echo "Estão corretas? Responda s/n e tecle Enter."
+    read CONFIRME;
+
+## Solicitando a confirmação das infomações
+if [ ${CONFIRME} == n ]; 
+	then
+		clear
+		echo "........................................"
+		echo "Reinicie o Processo..."
+		echo
+		echo "Execute novamente o Script ./criabkp.sh"
+		echo "........................................"
+		exit 0
+	else
+		clear
+		echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Continuando a instalação"
+		echo "----------------------------------------------------------------------"
+		echo -n "Coletando informações.."
+		sleep 3
+		echo -n "..."
+		sleep 3
+		echo -n ".."
+		sleep 1
+		echo "...."
+		echo "Ubuntu ${VER}"
+		sleep 2
+		echo "IP ${IPV4}"
+		sleep 1
+		echo -n "Processador  "
+		cat /proc/cpuinfo | grep -m1 "model name"|cut -c14-
+		sleep 2
+		echo "Máquina Ativa desde :   ${UPTIME}"
+		sleep 2
+		echo "Espaço em Disco:"
+		df -h|egrep -v '(tmpfs|udev)'
+		sleep 8
+fi
+
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Criando Diretorios"
+echo "----------------------------------------------------------------------"
+mkdir -p /u01/backup/${CLIENTE}/${LOJA1}/licenca
+ls -R /u01
+sleep 5
+
+###### Instala o rclone
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Instalando o RClone"
+echo "----------------------------------------------------------------------"
+sleep 3
+
+if [ -f /usr/bin/rclone ] 
+	then
+		echo "====================================="
+		echo "RClone já está instalado"
+		echo "Continuando a instalação do Backup..."
+		echo "====================================="
+		sleep 5
+	else
+		wget -O rclone.deb --no-check-certificate https://downloads.rclone.org/v1.59.2/rclone-v1.59.2-linux-amd64.deb && dpkg -i rclone.deb 
+fi
+
+clear
+
+cd /root
+wget -c ftp://cre:suporte@ftp.cre.com.br:2321/pub/cre/kelberson/rclone.conf
+mkdir -p /root/.config/rclone/
+cp -vf rclone.conf >> /root/.config/rclone/
+cat /root/.config/rclone/rclone.conf
+sleep 5
+
+###########################################
+# Cria o arquivo de bkpgeral.sh
+#
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Criando Arquivos "
+echo "----------------------------------------------------------------------"
+sleep 3
+
+rm -f /u01/bkpgeral.sh
+
+	touch /u01/bkpgeral.sh && cd /u01/ 
+
+	echo '#################################################' >> bkpgeral.sh 
+	echo '# Script da Backup e envio de arquivos para o FTP CRE' >> bkpgeral.sh
+	echo '# Data: 27/02/2019' >> bkpgeral.sh 
+    echo '# Autores Jasiel / Kelberson / Cleber' >> bkpgeral.sh 
+    echo '################################################' >> bkpgeral.sh
+    echo '#' >> bkpgeral.sh
+    echo '#### Variaveis de datas' >> bkpgeral.sh
+    echo 'DIA_ATUAL=`date --date="-0 day" +"%Y.%m.%d"`' >> bkpgeral.sh
+    echo 'BKP_OLD=`date --date="-5 day" +"%Y.%m.%d"`' >> bkpgeral.sh
+    echo '#' >> bkpgeral.sh
+    echo '#' >> bkpgeral.sh    
+	echo '#### Configuracoes do Cliente' >> bkpgeral.sh
+    echo 'EMPRESA="'${CLIENTE}'"' >> bkpgeral.sh
+    echo 'LOJA="'${LOJA1}'"' >> bkpgeral.sh
+    echo 'DIR_BKP="/u01/backup"' >> bkpgeral.sh
+    echo 'DIR_BKP2=/u01/backup/${EMPRESA}/${LOJA}' >> bkpgeral.sh
+	echo 'DIR_BKP3=/u01/backup/${EMPRESA}/${LOJA}/licenca' >> bkpgeral.sh
+	echo 'LOG=${DIR_BKP}/bkpGERAL.LOG_${DIA_ATUAL}.out' >> bkpgeral.sh
+	echo 'IPV4=$(cat /etc/network/interfaces | grep "address"|cut -c9-)' >> bkpgeral.sh
+	echo 'HORAINICIAL=`date +%T`' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Configuração de Logs' >> bkpgeral.sh
+	echo 'exec 1>> ${LOG}' >> bkpgeral.sh
+	echo 'exec 2>> ${LOG}' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Inicia Backup' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Iniciando $0"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'echo "Servidor ${EMPRESA} ${LOJA} - OS ${VER} - IP ${IPV4} - ${VERPDV}"' >> bkpgeral.sh
+	echo 'echo "Dados do Servidor ${EMPRESA} ${LOJA}" >> ${DIR_BKP3}/versao.cliente_${DIA_ATUAL}.txt' >> bkpgeral.sh
+	echo 'echo "OS ${VER}" >> ${DIR_BKP3}/versao.cliente_${DIA_ATUAL}.txt' >> bkpgeral.sh
+	echo 'echo "IP ${IPV4}" >> ${DIR_BKP3}/versao.cliente_${DIA_ATUAL}.txt' >> bkpgeral.sh
+	echo 'echo "Arius LOJA ${VERPDV}" >> ${DIR_BKP3}/versao.cliente_${DIA_ATUAL}.txt' >> bkpgeral.sh
+	echo '## Verifica/Acessa o Diretório de Backup' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Acessando o diretório padrão de Backup "' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'echo ${DIR_BKP}' >> bkpgeral.sh
+	echo 'cd ${DIR_BKP}' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Apaga arquivos de Backup com mais de 5 Dias' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Apagando arquivos com mais de 3 Dias"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'find ${DIR_BKP} -mtime +3' >> bkpgeral.sh
+	echo 'find ${DIR_BKP} -type f -mtime +3 -exec rm -r {} \;' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Para o PDVServer' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Parando o PDVServer"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'sudo service pdvserver stop' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Reinicia o MySQL ' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Reiniciando MySQL"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'sudo /etc/init.d/mysql restart' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Auto Repara o Banco de Dados' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Reparando o Banco de Dados"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'sudo mysqlcheck controle --auto-repair -uroot -p123456' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Faz backup dos bancos de dados Controle e Retag' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Efetuando backup do MySQL"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'mysqldump -uroot -p123456 -a -c controle --lock-tables=false > ${DIR_BKP}/bkpGERAL.controle_${DIA_ATUAL}.sql' >> bkpgeral.sh
+	echo 'mysqldump -uroot -p123456 -a -c retag.mercador_cnebef --lock-tables=false > ${DIR_BKP}/bkpGERAL.cnebef_${DIA_ATUAL}.sql' >> bkpgeral.sh
+	echo 'mysqldump -uroot -p123456 -a -c retag.listamerc --lock-tables=false > ${DIR_BKP}/bkpGERAL.listamerc_${DIA_ATUAL}.sql' >> bkpgeral.sh
+	echo 'mysqldump -uroot -p123456 -a -c retag --lock-tables=false > ${DIR_BKP}/bkpGERAL.retag_${DIA_ATUAL}.sql' >> bkpgeral.sh
+	echo 'mysqldump -uroot -p123456 -a -d retag --lock-tables=false > ${DIR_BKP}/bkpGERAL.retagSTR_${DIA_ATUAL}.sql' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Inicia o PDVServer ' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Iniciando o PDVServer"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'sudo service pdvserver start' >> bkpgeral.sh
+	echo '#sleep 30' >> bkpgeral.sh
+	echo 'sudo /servidor/pdv_server -s' >> bkpgeral.sh
+	echo 'rm -f LOG.SERVER.*.txt && rm -f /u01/LOG.SERVER.*.txt' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Compacta arquivo SQL Controle' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Compactando controle.sql"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'tar czvf bkpGERAL.controle_${DIA_ATUAL}.tar.gz bkpGERAL.controle_*.sql bkpGERAL.retagSTR_*.sql bkpGERAL.cnebef_*.sql bkpGERAL.listamerc_*.sql /servidor/lice* /servidor/sat*.txt /servidor/*.pem /retag/*.sh /u01/bkpgeral.sh /servidor/configuracao/* /u01/backup/bkpGERAL.LOG_*' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Compacta arquivo SQL Retag' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Compactando retag.sql"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'tar czvf bkpGERAL.retag_${DIA_ATUAL}.tar.gz bkpGERAL.retag_*.sql' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Compacta Arquivos de Licenças e Certificado' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Compactando arquivos de licenças"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'tar czvf bkpGERAL.licenca_${DIA_ATUAL}.tar.gz /servidor/lice* /servidor/sat*.txt /servidor/*.pem ' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Copiando backup das licenças e do banco controle para o diretório de integração' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Enviando arquivos para o diretório de integração"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'cp -v ${DIR_BKP}/bkpGERAL.controle_${DIA_ATUAL}.tar.gz ${DIR_BKP2}' >> bkpgeral.sh
+	echo 'cp -v ${DIR_BKP}/bkpGERAL.licenca_${DIA_ATUAL}.tar.gz ${DIR_BKP3}' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Deleta arquivos SQL' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Deletando os Arquivos SQL"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'rm -vf /u01/backup/bkpGERAL.*.sql' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '#### Envia Controle para o FTP da CRE via RCLONE' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Enviando Arquivos para Arius"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'rclone sync -v /u01/backup/${EMPRESA}/${LOJA} syncontrole:/home/frente/master/${EMPRESA}/${LOJA}' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Compacta Chaves XMLs' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Compactando arquivos XMLs"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'tar czf bkpGERAL.xml_${DIA_ATUAL}.tar.gz /servidor/NFCE*' >> bkpgeral.sh
+	echo '#' >> bkpgeral.sh
+	echo '## Compacta Arquivos CAPTs' >> bkpgeral.sh
+	echo 'echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Compactando arquivos de venda (.capt)"' >> bkpgeral.sh
+	echo 'echo "----------------------------------------------------------------------------------------------------------------------------------------------"' >> bkpgeral.sh
+	echo 'tar czf bkpGERAL.capt_${DIA_ATUAL}.tar.gz /servidor/capt*.* ' >> bkpgeral.sh
+	
+#########################################################
+# Insere a linha nos Crontabs
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Agendando Tarefa de Backup no Crontab"
+echo "----------------------------------------------------------------------"
+sleep 3
+
+CRON=$(grep "bkpgeral.sh" /etc/crontab)
+
+if [ -n "$CRON" ]
+	
+	then
+		echo "====================================="
+		echo "O agendamento ja existe"
+		echo "Continuando a instalação do Backup..."
+		echo "====================================="
+		sleep 5
+	else
+		echo '30 2	* * *	root	/u01/./bkpgeral.sh' >> /etc/crontab
+		service cron restart
+fi
+
+tail /etc/crontab
+sleep 3
+#########################################################
+# Insere a linha no samba
+clear
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Criando compartilhamento no Samba"
+echo "----------------------------------------------------------------------"
+sleep 3
+
+SMB=$(grep "/u01/backup" /etc/samba/smb.conf)
+
+if [ -n "${SMB}" ]
+
+	then
+		echo "====================================="
+		echo "A configuracao Samba ja existe"
+		echo "Continuando a instalação do Backup..."
+		echo "====================================="
+		sleep 5
+	else
+		echo '#' >> /etc/samba/smb.conf
+		echo '[backup]' >> /etc/samba/smb.conf
+		echo '	path = /u01/backup' >> /etc/samba/smb.conf
+		echo '	writable = yes' >> /etc/samba/smb.conf
+		echo '	public = yes' >> /etc/samba/smb.conf
+		echo '	printable = no' >> /etc/samba/smb.conf
+		echo '	create mask = 0666' >> /etc/samba/smb.conf
+		echo '	directory mask = 0777' >> /etc/samba/smb.conf
+		service smbd restart
+fi       
+
+clear
+echo
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Executando backup pela primeira vez"
+echo "----------------------------------------------------------------------"
+sleep 3
+chmod +x /u01/bkpgeral.sh
+clear
+echo
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Tarefa de Backup criada"
+echo "----------------------------------------------------------------------"
+echo
+echo -n "..."
+sleep 3
+echo -n ".."
+sleep 1
+echo -n "....."
+sleep 1
+echo -n "...."
+sleep 3
+echo ".Com sussesso"
+sleep 3
+clear
+
+#### Executa limpeza no server
+echo
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Executando limpeza no server"
+echo "----------------------------------------------------------------------------------------------------------------------------------------------"
+cd /
+find /servidor/ -name "LOG.SERVER*" -mtime +3 -exec rm {} \;
+find /servidor/ -name "lognfce_server*" -mtime +3 -exec rm {} \;
+find /servidor/ -name "logr*" -mtime +3 -exec rm {} \;
+find /servidor/ -name "CAPL*" -mtime +3 -exec rm {} \;
+find /servidor/ -name "log.imediata*" -mtime +3 -exec rm {} \;
+find /servidor/ -name "log.importa*" -mtime +3 -exec rm {} \;
+find /servidor/importacao/ -name "imp.*" -mtime +3 -exec rm {} \;
+find /servidor/impressao/ -name "*.*" -mtime +1 -exec rm {} \;
+find /servidor/exportacao/ -name "LV*" -mtime +3 -exec rm {} \;
+find /servidor/exportacao/ -name "lv*" -mtime +3 -exec rm {} \;
+find /servidor/logs* -name "*.pdv_server.txt" -mtime +3 -exec rm {} \;
+find /servidor/logs* -name "*.fastFood.txt" -mtime +3 -exec rm {} \;
+find /retag/ -name "LOG.GERATAB*" -mtime +3 -exec rm {} \;
+find /retag/ -name "LOG.LIMPABD*" -mtime +3 -exec rm {} \;
+find /retag/ -name "LOG.SCC*" -mtime +3 -exec rm {} \;
+find /retag/ -name "movoutra.20*" -mtime +3 -exec rm {} \;
+find /retag/ -name "conciliasat*.log" -mtime +3 -exec rm {} \;
+find /retag/ -name "importa.20*.txt" -mtime +3 -exec rm {} \;
+find /retag/ -name "netpoints.*.txt" -mtime +3 -exec rm {} \;
+find /retag/ -name ".2017*" -mtime +3 -exec rm {} \;
+find /retag/ -name ".2018*" -mtime +3 -exec rm {} \;
+find /retag/ -name ".2019*" -mtime +3 -exec rm {} \;
+find /retag/ -name ".2020*" -mtime +3 -exec rm {} \;
+find /retag/ -name ".2021*" -mtime +3 -exec rm {} \;
+
+#### Afirma as permissões do Usuário RETAG 
+echo
+echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Executando permissões do Usuário RETAG"
+echo "----------------------------------------------------------------------------------------------------------------------------------------------"
+cd /
+chown retag.users /servidor/ -R
+chown retag.users /retag/ -R 
+chmod 777 /servidor/ -R
+chmod 777 /retag/ -R
+
+## script para calcular o tempo gasto no processo de backup
+	HORAFINAL=`date +%T`
+	HORAINICIAL01=$(date -u -d "$HORAINICIAL" +"%s")
+	HORAFINAL01=$(date -u -d "$HORAFINAL" +"%s")
+	TEMPO=`date -u -d "0 $HORAFINAL01 sec - $HORAINICIAL01 sec" +"%H:%M:%S"`
+	echo
+	echo [$(date --date="-0 day" +"%d/%m-%H:%M:%S")]".....Finalizando $0 "
+	echo "----------------------------------------------------------------------"
+	echo "Tempo total gasto na execução $TEMPO"
+
+## Finalizando
+echo
+date
+echo
+echo "Arius Sistemas"
+echo
+
